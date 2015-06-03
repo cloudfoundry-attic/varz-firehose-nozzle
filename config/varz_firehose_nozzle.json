@@ -1,0 +1,12 @@
+{
+  "CollectorRegistrarIntervalMilliseconds": 10000,
+  "Index": 42,
+  "Job": "test-component",
+  "VarzPort": 1234,
+  "VarzUser": "admin",
+  "VarzPass": "admin",
+  "NatsHosts": ["127.0.0.1"],
+  "NatsPort": 24484,
+  "NatsUser": "nats",
+  "NatsPass": "nats"
+}
