@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("Emitter", func() {
 	It("emits the correct varz message for ValueMetrics", func() {
-		e := emitter.New()
+		e := emitter.New("varz-nozzle")
 		metric := 	&events.Envelope{
 			Origin: proto.String("fake-origin"),
 			EventType: events.Envelope_ValueMetric.Enum(),
@@ -44,7 +44,7 @@ var _ = Describe("Emitter", func() {
 	})
 
 	It("emits the correct varz message for CounterEvents", func() {
-		e := emitter.New()
+		e := emitter.New("varz-nozzle")
 		metric := 	&events.Envelope{
 			Origin: proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
@@ -76,7 +76,7 @@ var _ = Describe("Emitter", func() {
 	})
 
 	It("does not emit a varzmessage if not a CounterEvent or ValueMetric", func() {
-		e := emitter.New()
+		e := emitter.New("varz-nozzle")
 		metric := 	&events.Envelope{
 			Origin: proto.String("fake-origin"),
 			EventType: events.Envelope_LogMessage.Enum(),
@@ -97,7 +97,7 @@ var _ = Describe("Emitter", func() {
 	})
 
 	It("does not emit a duplicate varz message for an update to an existing metric", func() {
-		e := emitter.New()
+		e := emitter.New("varz-nozzle")
 		metric1 := 	&events.Envelope{
 			Origin: proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
@@ -148,7 +148,7 @@ var _ = Describe("Emitter", func() {
 	})
 
 	It("emits a varz message with different context names", func() {
-		e := emitter.New()
+		e := emitter.New("varz-nozzle")
 		metric1 := 	&events.Envelope{
 			Origin: proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
@@ -163,6 +163,7 @@ var _ = Describe("Emitter", func() {
 			Index: proto.String("0"),
 		}
 		e.AddMetric(metric1)
+		varzMessage := e.Emit()
 
 		metric2 := 	&events.Envelope{
 			Origin: proto.String("fake-origin"),
@@ -179,27 +180,58 @@ var _ = Describe("Emitter", func() {
 		}
 		e.AddMetric(metric2)
 
-		varzMessage := e.Emit()
+		varzMessage = e.Emit()
 		Expect(varzMessage.Contexts).To(HaveLen(2))
 		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
-		context1 := varzMessage.Contexts[0]
-		Expect(context1.Name).To(Equal("contextName1"))
-		counterEvent1 := context1.Metrics[0]
-		Expect(counterEvent1.Name).To(Equal("metricName"))
-		Expect(counterEvent1.Value).To(BeEquivalentTo(10))
-		Expect(counterEvent1.Tags).To(HaveKeyWithValue("ip", "192.168.0.1"))
-		Expect(counterEvent1.Tags).To(HaveKeyWithValue("job", "doppler"))
-		Expect(counterEvent1.Tags).To(HaveKeyWithValue("index", "0"))
+		Expect(varzMessage.Contexts[1].Metrics).To(HaveLen(1))
 
 
-		context2 := varzMessage.Contexts[1]
-		Expect(context2.Name).To(Equal("contextName2"))
-		counterEvent2 := context2.Metrics[0]
-		Expect(counterEvent2.Name).To(Equal("metricName"))
-		Expect(counterEvent2.Value).To(BeEquivalentTo(100))
-		Expect(counterEvent2.Tags).To(HaveKeyWithValue("ip", "192.168.0.2"))
-		Expect(counterEvent2.Tags).To(HaveKeyWithValue("job", "metron"))
-		Expect(counterEvent2.Tags).To(HaveKeyWithValue("index", "1"))
+		Expect(varzMessage.Contexts).To(ConsistOf(
+			emitter.Context {
+				Name: "contextName1",
+				Metrics: []emitter.Metric {
+					{
+						Name: "metricName",
+						Value: uint64(10),
+						Tags: map[string]interface{} {
+							"ip": "192.168.0.1",
+							"job": "doppler",
+							"index": "0",
+							"deployment": "our-deployment",
+						},
+					},
+				},
+			},
+			emitter.Context {
+				Name: "contextName2",
+				Metrics: []emitter.Metric {
+					{
+						Name: "metricName",
+						Value: uint64(100),
+						Tags: map[string]interface{} {
+							"ip": "192.168.0.2",
+							"job": "metron",
+							"index": "1",
+							"deployment": "our-deployment",
+
+						},
+					},
+				},
+			}))
+	})
+
+	It("emits runtime stats in varz message", func() {
+		e := emitter.New("varz-nozzle")
+		varzMessage := e.Emit()
+		Expect(varzMessage.Name).To(Equal("varz-nozzle"))
+		Expect(varzMessage.NumCpus).To(BeNumerically(">", 0))
+		Expect(varzMessage.NumGoRoutines).To(BeNumerically(">", 0))
+		Expect(varzMessage.MemoryStats.BytesAllocated).To(BeNumerically(">", 0))
+		Expect(varzMessage.MemoryStats.BytesAllocatedHeap).To(BeNumerically(">", 0))
+		Expect(varzMessage.MemoryStats.BytesAllocatedStack).To(BeNumerically(">", 0))
+		Expect(varzMessage.MemoryStats.LastGCPauseTimeNS).To(BeNumerically(">", 0))
+		Expect(varzMessage.MemoryStats.NumFrees).To(BeNumerically(">", 0))
+		Expect(varzMessage.MemoryStats.NumMallocs).To(BeNumerically(">", 0))
 	})
 
 })

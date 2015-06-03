@@ -2,10 +2,12 @@ package emitter
 import (
 	"github.com/cloudfoundry/noaa/events"
 	"strings"
+	"runtime"
 )
 
-type Emitter struct {
+type VarzEmitter struct {
 	contextMap map[string]contextMetricsMap
+	name string
 }
 
 type Metric struct {
@@ -41,13 +43,14 @@ type contextMetricsMap struct {
 	Metrics map[string]Metric
 }
 
-func New() *Emitter {
-	return &Emitter{
+func New(name string) *VarzEmitter {
+	return &VarzEmitter{
 		contextMap: make(map[string]contextMetricsMap),
+		name: name,
 	}
 }
 
-func (e *Emitter) AddMetric(metric *events.Envelope) {
+func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 	var name string
 	var value interface{}
 	tags := make(map[string]interface{})
@@ -90,7 +93,7 @@ func (e *Emitter) AddMetric(metric *events.Envelope) {
 
 }
 
-func (e *Emitter) Emit() *VarzMessage {
+func (e *VarzEmitter) Emit() *VarzMessage {
 	contexts := make([]Context, len(e.contextMap))
 	var i = 0
 	for contextName, contextMetricsMap := range(e.contextMap) {
@@ -98,8 +101,16 @@ func (e *Emitter) Emit() *VarzMessage {
 		contexts[i] = Context { Name: contextName, Metrics: metrics}
 		i++
 	}
+
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
 	return &VarzMessage{
 		Contexts: contexts,
+		Name: e.name,
+		NumCpus: runtime.NumCPU(),
+		NumGoRoutines: runtime.NumGoroutine(),
+		MemoryStats: mapMemStats(&memStats),
 	}
 }
 
@@ -111,5 +122,16 @@ func getMetrics(metricMap contextMetricsMap) []Metric {
 		i++
 	}
 	return metrics
+}
+
+func mapMemStats(stats *runtime.MemStats) VarzMemoryStats {
+	return VarzMemoryStats{
+		BytesAllocatedHeap: stats.HeapAlloc,
+		BytesAllocatedStack: stats.StackInuse,
+		BytesAllocated:      stats.Alloc,
+		NumMallocs:          stats.Mallocs,
+		NumFrees:            stats.Frees,
+		LastGCPauseTimeNS:   stats.PauseNs[(stats.NumGC+255)%256],
+	}
 }
 

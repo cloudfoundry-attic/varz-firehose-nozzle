@@ -1,4 +1,4 @@
-package varzserver_test
+package server_test
 
 import (
 	. "github.com/onsi/ginkgo"

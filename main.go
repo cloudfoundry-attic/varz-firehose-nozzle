@@ -1,22 +1,23 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/instrumentation"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
-	"io/ioutil"
 	"time"
 	"flag"
 	"os"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/config"
+	"github.com/cloudfoundry-incubator/uaago"
+	"github.com/cloudfoundry/noaa"
+	"crypto/tls"
+	"github.com/cloudfoundry/noaa/events"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/server"
 )
 
-type varzConfig struct {
-	cfcomponent.Config
-	Index uint
-}
+
 
 type varzHealthMonitor struct{}
 
@@ -32,11 +33,38 @@ func main() {
 
 	logger := initLogger()
 
-	config, err := parseConfig(*configFilePath)
+	config, err := config.ParseConfig(*configFilePath)
 	if err != nil {
 		logger.Fatal(err.Error())
 		return
 	}
+
+	uaaClient, err := uaago.NewClient(config.UAAURL)
+	if err != nil {
+		logger.Fatalf("Error creating uaa client: %s", err.Error())
+		return
+	}
+
+	authToken, err := uaaClient.GetAuthToken(config.UAAUser, config.UAAPass, config.InsecureSSLSkipVerify)
+	if err != nil {
+		logger.Fatalf("Error getting oauth token: %s. Please check your username and password.", err.Error())
+		return
+	}
+
+	consumer := noaa.NewConsumer(
+		config.TrafficControllerURL,
+		&tls.Config{InsecureSkipVerify: config.InsecureSSLSkipVerify},
+		nil)
+	messages := make(chan *events.Envelope)
+	errs := make(chan error)
+	done := make(chan struct{})
+	go consumer.Firehose(config.FireshoseSubscriptionID, authToken, messages, errs, done)
+
+	go func() {
+		err := <-errs
+		logger.Errorf("Error while reading from the firehose: %s", err.Error())
+		close(done)
+	}()
 
 	registrar, err := initRegistrar(config, logger)
 	if err != nil {
@@ -44,22 +72,23 @@ func main() {
 		return
 	}
 
-	registrar.Run()
+	varzEmitter := emitter.New("varz-nozzle")
+	varzServer := server.New(varzEmitter, int(config.VarzPort), config.VarzUser, config.VarzPass)
+
+	go varzServer.Start()
+	go registrar.Run()
+
+	for {
+		select {
+			case envelope := <-messages:
+				varzEmitter.AddMetric(envelope)
+			case <-done:
+				consumer.Close()
+		}
+	}
 }
 
-func parseConfig(configPath string) (*varzConfig, error) {
-	configBytes, err := ioutil.ReadFile(configPath)
-	var config varzConfig
-	if err != nil {
-		return nil, fmt.Errorf("Can not read config file [%s]: %s", configPath, err)
-	}
 
-	err = json.Unmarshal(configBytes, &config)
-	if err != nil {
-		return nil, fmt.Errorf("Can not parse config file %s: %s", configPath, err)
-	}
-	return &config, err
-}
 
 func initLogger() *gosteno.Logger{
 	c := &gosteno.Config{
@@ -75,7 +104,7 @@ func initLogger() *gosteno.Logger{
 	return gosteno.NewLogger("Varz Firehose Nozzle")
 }
 
-func initRegistrar(config *varzConfig, logger *gosteno.Logger) (*collectorregistrar.CollectorRegistrar, error) {
+func initRegistrar(config *config.VarzConfig, logger *gosteno.Logger) (*collectorregistrar.CollectorRegistrar, error) {
 	interval := time.Duration(config.CollectorRegistrarIntervalMilliseconds) * time.Millisecond
 	instrumentables := []instrumentation.Instrumentable{}
 	component, err := cfcomponent.NewComponent(logger, "MetronAgent", config.Index, &varzHealthMonitor{}, config.VarzPort, []string{config.VarzUser, config.VarzPass}, instrumentables)
