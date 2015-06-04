@@ -18,7 +18,7 @@ import (
 	"github.com/cloudfoundry/gunk/natsrunner"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
-	"github.com/cloudfoundry/noaa/events"
+	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"

@@ -3,7 +3,7 @@ package emitter_test
 import (
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
 
-	"github.com/cloudfoundry/noaa/events"
+	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

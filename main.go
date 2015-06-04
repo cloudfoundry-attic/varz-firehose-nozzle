@@ -15,7 +15,7 @@ import (
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/instrumentation"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
 	"github.com/cloudfoundry/noaa"
-	"github.com/cloudfoundry/noaa/events"
+	"github.com/cloudfoundry/sonde-go/events"
 )
 
 type varzHealthMonitor struct{}
@@ -58,7 +58,7 @@ func main() {
 	errs := make(chan error)
 	done := make(chan struct{})
 
-	go consumer.Firehose(config.FirehoseSubscriptionID, authToken, messages, errs, done)
+	go consumer.Firehose(config.FirehoseSubscriptionID, authToken, messages, errs)
 
 	go func() {
 		err := <-errs
