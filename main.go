@@ -56,7 +56,8 @@ func main() {
 	messages := make(chan *events.Envelope)
 	errs := make(chan error)
 	done := make(chan struct{})
-	go consumer.Firehose(config.FireshoseSubscriptionID, authToken, messages, errs, done)
+
+	go consumer.Firehose(config.FirehoseSubscriptionID, authToken, messages, errs, done)
 
 	go func() {
 		err := <-errs
@@ -82,6 +83,7 @@ func main() {
 			varzEmitter.AddMetric(envelope)
 		case <-done:
 			consumer.Close()
+			return
 		}
 	}
 }

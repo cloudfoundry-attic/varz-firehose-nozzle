@@ -97,7 +97,7 @@ var _ = Describe("VarzFirehoseNozzle", func() {
 			Timestamp: proto.Int64(1000000000),
 			EventType: events.Envelope_ValueMetric.Enum(),
 			ValueMetric: &events.ValueMetric{
-				Name:  proto.String("context.metricName"),
+				Name:  proto.String("metric.name"),
 				Value: proto.Float64(5),
 				Unit:  proto.String("gauge"),
 			},
@@ -124,10 +124,10 @@ var _ = Describe("VarzFirehoseNozzle", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(message.Contexts).To(HaveLen(1))
 		context := message.Contexts[0]
-		Expect(context.Name).To(Equal("context"))
+		Expect(context.Name).To(Equal("origin"))
 		Expect(context.Metrics).To(HaveLen(1))
 		metric := context.Metrics[0]
-		Expect(metric.Name).To(Equal("metricName"))
+		Expect(metric.Name).To(Equal("metric.name"))
 		Expect(metric.Value).To(BeEquivalentTo(5))
 		Expect(metric.Tags).To(HaveKeyWithValue("deployment", "deployment-name"))
 		Expect(metric.Tags).To(HaveKeyWithValue("job", "doppler"))

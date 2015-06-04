@@ -16,7 +16,7 @@ var _ = Describe("Emitter", func() {
 			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_ValueMetric.Enum(),
 			ValueMetric: &events.ValueMetric{
-				Name:  proto.String("contextName.metricName"),
+				Name:  proto.String("metric.name"),
 				Value: proto.Float64(32.0),
 				Unit:  proto.String("some-unit"),
 			},
@@ -32,9 +32,9 @@ var _ = Describe("Emitter", func() {
 		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
 
 		context := varzMessage.Contexts[0]
-		Expect(context.Name).To(Equal("contextName"))
+		Expect(context.Name).To(Equal("fake-origin"))
 		valueMetric := context.Metrics[0]
-		Expect(valueMetric.Name).To(Equal("metricName"))
+		Expect(valueMetric.Name).To(Equal("metric.name"))
 		Expect(valueMetric.Value).To(BeEquivalentTo(32.0))
 		Expect(valueMetric.Tags).To(HaveKeyWithValue("deployment", "our-deployment"))
 		Expect(valueMetric.Tags).To(HaveKeyWithValue("ip", "192.168.0.1"))
@@ -49,7 +49,7 @@ var _ = Describe("Emitter", func() {
 			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name:  proto.String("contextName.metricName"),
+				Name:  proto.String("metric.name"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(10),
 			},
@@ -65,9 +65,9 @@ var _ = Describe("Emitter", func() {
 		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
 
 		context := varzMessage.Contexts[0]
-		Expect(context.Name).To(Equal("contextName"))
+		Expect(context.Name).To(Equal("fake-origin"))
 		counterEvent := context.Metrics[0]
-		Expect(counterEvent.Name).To(Equal("metricName"))
+		Expect(counterEvent.Name).To(Equal("metric.name"))
 		Expect(counterEvent.Value).To(BeEquivalentTo(10))
 		Expect(counterEvent.Tags).To(HaveKeyWithValue("deployment", "our-deployment"))
 		Expect(counterEvent.Tags).To(HaveKeyWithValue("ip", "192.168.0.1"))
@@ -102,7 +102,7 @@ var _ = Describe("Emitter", func() {
 			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name:  proto.String("contextName.metricName"),
+				Name:  proto.String("metric.name"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(10),
 			},
@@ -117,16 +117,16 @@ var _ = Describe("Emitter", func() {
 		Expect(varzMessage.Contexts).To(HaveLen(1))
 		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
 		context := varzMessage.Contexts[0]
-		Expect(context.Name).To(Equal("contextName"))
+		Expect(context.Name).To(Equal("fake-origin"))
 		counterEvent := context.Metrics[0]
-		Expect(counterEvent.Name).To(Equal("metricName"))
+		Expect(counterEvent.Name).To(Equal("metric.name"))
 		Expect(counterEvent.Value).To(BeEquivalentTo(10))
 
 		metric2 := &events.Envelope{
 			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name:  proto.String("contextName.metricName"),
+				Name:  proto.String("metric.name"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(150),
 			},
@@ -141,19 +141,19 @@ var _ = Describe("Emitter", func() {
 		Expect(varzMessage.Contexts).To(HaveLen(1))
 		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
 		context = varzMessage.Contexts[0]
-		Expect(context.Name).To(Equal("contextName"))
+		Expect(context.Name).To(Equal("fake-origin"))
 		counterEvent = context.Metrics[0]
-		Expect(counterEvent.Name).To(Equal("metricName"))
+		Expect(counterEvent.Name).To(Equal("metric.name"))
 		Expect(counterEvent.Value).To(BeEquivalentTo(150))
 	})
 
 	It("emits a varz message with different context names", func() {
 		e := emitter.New("varz-nozzle")
 		metric1 := &events.Envelope{
-			Origin:    proto.String("fake-origin"),
+			Origin:    proto.String("fake-origin-1"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name:  proto.String("contextName1.metricName"),
+				Name:  proto.String("metric.name"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(10),
 			},
@@ -166,10 +166,10 @@ var _ = Describe("Emitter", func() {
 		varzMessage := e.Emit()
 
 		metric2 := &events.Envelope{
-			Origin:    proto.String("fake-origin"),
+			Origin:    proto.String("fake-origin-2"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name:  proto.String("contextName2.metricName"),
+				Name:  proto.String("metric.name"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(100),
 			},
@@ -187,10 +187,10 @@ var _ = Describe("Emitter", func() {
 
 		Expect(varzMessage.Contexts).To(ConsistOf(
 			emitter.Context{
-				Name: "contextName1",
+				Name: "fake-origin-1",
 				Metrics: []emitter.Metric{
 					{
-						Name:  "metricName",
+						Name:  "metric.name",
 						Value: uint64(10),
 						Tags: map[string]interface{}{
 							"ip":         "192.168.0.1",
@@ -202,10 +202,10 @@ var _ = Describe("Emitter", func() {
 				},
 			},
 			emitter.Context{
-				Name: "contextName2",
+				Name: "fake-origin-2",
 				Metrics: []emitter.Metric{
 					{
-						Name:  "metricName",
+						Name:  "metric.name",
 						Value: uint64(100),
 						Tags: map[string]interface{}{
 							"ip":         "192.168.0.2",

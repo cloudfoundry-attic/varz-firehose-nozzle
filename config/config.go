@@ -16,7 +16,7 @@ type VarzConfig struct {
 	NatsType                string
 	InsecureSSLSkipVerify   bool
 	TrafficControllerURL    string
-	FireshoseSubscriptionID string
+	FirehoseSubscriptionID string
 }
 
 func ParseConfig(configPath string) (*VarzConfig, error) {

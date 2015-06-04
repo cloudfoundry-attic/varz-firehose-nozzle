@@ -3,7 +3,6 @@ package emitter
 import (
 	"github.com/cloudfoundry/noaa/events"
 	"runtime"
-	"strings"
 )
 
 type VarzEmitter struct {
@@ -71,15 +70,7 @@ func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 	tags["job"] = metric.GetJob()
 	tags["index"] = metric.GetIndex()
 
-	fields := strings.Split(name, ".")
-	var contextName, metricName string
-	if len(fields) >= 2 {
-		contextName = fields[0]
-		metricName = fields[1]
-	} else {
-		contextName = "default"
-		metricName = name
-	}
+	contextName := metric.GetOrigin()
 
 	if _, ok := e.contextMap[contextName]; !ok {
 		e.contextMap[contextName] = contextMetricsMap{Metrics: make(map[string]Metric)}
@@ -87,7 +78,7 @@ func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 
 	context := e.contextMap[contextName]
 	context.Metrics[name] = Metric{
-		Name:  metricName,
+		Name:  name,
 		Value: value,
 		Tags:  tags,
 	}
