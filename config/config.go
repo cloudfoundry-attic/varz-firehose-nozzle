@@ -3,19 +3,20 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 	"io/ioutil"
+
+	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 )
 
 type VarzConfig struct {
 	cfcomponent.Config
-	Index                   uint
-	UAAURL                  string
-	UAAUser                 string
-	UAAPass                 string
-	NatsType                string
-	InsecureSSLSkipVerify   bool
-	TrafficControllerURL    string
+	Index                  uint
+	UAAURL                 string
+	UAAUser                string
+	UAAPass                string
+	NatsType               string
+	InsecureSSLSkipVerify  bool
+	TrafficControllerURL   string
 	FirehoseSubscriptionID string
 }
 

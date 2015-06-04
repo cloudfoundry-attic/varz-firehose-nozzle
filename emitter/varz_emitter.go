@@ -1,8 +1,9 @@
 package emitter
 
 import (
-	"github.com/cloudfoundry/noaa/events"
 	"runtime"
+
+	"github.com/cloudfoundry/noaa/events"
 )
 
 type VarzEmitter struct {

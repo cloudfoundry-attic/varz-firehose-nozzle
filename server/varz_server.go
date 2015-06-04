@@ -4,9 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
 	"net/http"
 	"strings"
+
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
 )
 
 const varzNozzleRealm = "Varz Nozzle"

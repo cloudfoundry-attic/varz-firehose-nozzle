@@ -4,11 +4,12 @@ import (
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/server"
 
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"net/http/httptest"
 )
 
 var _ = Describe("VarzServer", func() {

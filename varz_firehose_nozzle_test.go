@@ -3,6 +3,15 @@ package main_test
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
+
 	"github.com/apcera/nats"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/config"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
@@ -15,14 +24,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"net/http/httptest"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
 )
 
 var ()

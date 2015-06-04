@@ -3,6 +3,9 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"os"
+	"time"
+
 	"github.com/cloudfoundry-incubator/uaago"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/config"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
@@ -13,8 +16,6 @@ import (
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
 	"github.com/cloudfoundry/noaa"
 	"github.com/cloudfoundry/noaa/events"
-	"os"
-	"time"
 )
 
 type varzHealthMonitor struct{}
