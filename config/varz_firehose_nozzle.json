@@ -1,5 +1,11 @@
 {
-  "CollectorRegistrarIntervalMilliseconds": 10000,
+  "UAAURL": "https://uaa.walnut.cf-app.com",
+  "UAAUser": "user",
+  "UAAPass": "user_password",
+  "InsecureSSLSkipVerify": true,
+  "TrafficControllerURL": "wss://doppler.walnut.cf-app.com:4443",
+  "FirehoseSubscriptionID": "varz-nozzle",
+  "CollectorRegistrarIntervalMilliseconds": 100,
   "Index": 42,
   "Job": "test-component",
   "VarzPort": 1234,
