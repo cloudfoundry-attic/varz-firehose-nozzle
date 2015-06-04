@@ -3,12 +3,12 @@ package server_test
 import (
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/server"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"net/http/httptest"
-	"net/http"
 	"fmt"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"net/http"
+	"net/http/httptest"
 )
 
 var _ = Describe("VarzServer", func() {
@@ -62,12 +62,12 @@ func buildVarzMessage() *emitter.VarzMessage {
 			Name: "contextName1",
 			Metrics: []emitter.Metric{
 				{
-					Name: "metricName",
+					Name:  "metricName",
 					Value: uint64(10),
 					Tags: map[string]interface{}{
-						"ip": "192.168.0.1",
-						"job": "doppler",
-						"index": "0",
+						"ip":         "192.168.0.1",
+						"job":        "doppler",
+						"index":      "0",
 						"deployment": "our-deployment",
 					},
 				},
@@ -75,10 +75,10 @@ func buildVarzMessage() *emitter.VarzMessage {
 		},
 	}
 	return &emitter.VarzMessage{
-		Name: "fake-message",
-		NumCpus: 2,
+		Name:          "fake-message",
+		NumCpus:       2,
 		NumGoRoutines: 2,
-		MemoryStats: memoryStats,
-		Contexts: contexts,
+		MemoryStats:   memoryStats,
+		Contexts:      contexts,
 	}
 }

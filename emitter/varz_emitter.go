@@ -1,13 +1,14 @@
 package emitter
+
 import (
 	"github.com/cloudfoundry/noaa/events"
-	"strings"
 	"runtime"
+	"strings"
 )
 
 type VarzEmitter struct {
 	contextMap map[string]contextMetricsMap
-	name string
+	name       string
 }
 
 type Metric struct {
@@ -31,12 +32,12 @@ type VarzMemoryStats struct {
 }
 
 type VarzMessage struct {
-	Name          string `json:"name"`
-	NumCpus       int    `json:"numCPUS"`
-	NumGoRoutines int    `json:"numGoRoutines"`
+	Name          string            `json:"name"`
+	NumCpus       int               `json:"numCPUS"`
+	NumGoRoutines int               `json:"numGoRoutines"`
 	MemoryStats   VarzMemoryStats   `json:"memoryStats"`
-	Tags     map[string]string `json:"tags"`
-	Contexts []Context         `json:"contexts"`
+	Tags          map[string]string `json:"tags"`
+	Contexts      []Context         `json:"contexts"`
 }
 
 type contextMetricsMap struct {
@@ -46,7 +47,7 @@ type contextMetricsMap struct {
 func New(name string) *VarzEmitter {
 	return &VarzEmitter{
 		contextMap: make(map[string]contextMetricsMap),
-		name: name,
+		name:       name,
 	}
 }
 
@@ -55,14 +56,14 @@ func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 	var value interface{}
 	tags := make(map[string]interface{})
 	switch metric.GetEventType() {
-		case events.Envelope_ValueMetric:
-			name = metric.GetValueMetric().GetName()
-			value = metric.GetValueMetric().GetValue()
-		case events.Envelope_CounterEvent:
-			name = metric.GetCounterEvent().GetName()
-			value = metric.GetCounterEvent().GetTotal()
+	case events.Envelope_ValueMetric:
+		name = metric.GetValueMetric().GetName()
+		value = metric.GetValueMetric().GetValue()
+	case events.Envelope_CounterEvent:
+		name = metric.GetCounterEvent().GetName()
+		value = metric.GetCounterEvent().GetTotal()
 	default:
-			return
+		return
 	}
 
 	tags["deployment"] = metric.GetDeployment()
@@ -81,24 +82,24 @@ func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 	}
 
 	if _, ok := e.contextMap[contextName]; !ok {
-		e.contextMap[contextName] = contextMetricsMap{ Metrics: make(map[string]Metric)}
+		e.contextMap[contextName] = contextMetricsMap{Metrics: make(map[string]Metric)}
 	}
 
 	context := e.contextMap[contextName]
 	context.Metrics[name] = Metric{
-		Name: metricName,
+		Name:  metricName,
 		Value: value,
-		Tags: tags,
-    }
+		Tags:  tags,
+	}
 
 }
 
 func (e *VarzEmitter) Emit() *VarzMessage {
 	contexts := make([]Context, len(e.contextMap))
 	var i = 0
-	for contextName, contextMetricsMap := range(e.contextMap) {
+	for contextName, contextMetricsMap := range e.contextMap {
 		metrics := getMetrics(contextMetricsMap)
-		contexts[i] = Context { Name: contextName, Metrics: metrics}
+		contexts[i] = Context{Name: contextName, Metrics: metrics}
 		i++
 	}
 
@@ -106,18 +107,18 @@ func (e *VarzEmitter) Emit() *VarzMessage {
 	runtime.ReadMemStats(&memStats)
 
 	return &VarzMessage{
-		Contexts: contexts,
-		Name: e.name,
-		NumCpus: runtime.NumCPU(),
+		Contexts:      contexts,
+		Name:          e.name,
+		NumCpus:       runtime.NumCPU(),
 		NumGoRoutines: runtime.NumGoroutine(),
-		MemoryStats: mapMemStats(&memStats),
+		MemoryStats:   mapMemStats(&memStats),
 	}
 }
 
 func getMetrics(metricMap contextMetricsMap) []Metric {
 	metrics := make([]Metric, len(metricMap.Metrics))
 	var i = 0
-	for _, metricValue := range(metricMap.Metrics) {
+	for _, metricValue := range metricMap.Metrics {
 		metrics[i] = metricValue
 		i++
 	}
@@ -126,7 +127,7 @@ func getMetrics(metricMap contextMetricsMap) []Metric {
 
 func mapMemStats(stats *runtime.MemStats) VarzMemoryStats {
 	return VarzMemoryStats{
-		BytesAllocatedHeap: stats.HeapAlloc,
+		BytesAllocatedHeap:  stats.HeapAlloc,
 		BytesAllocatedStack: stats.StackInuse,
 		BytesAllocated:      stats.Alloc,
 		NumMallocs:          stats.Mallocs,
@@ -134,4 +135,3 @@ func mapMemStats(stats *runtime.MemStats) VarzMemoryStats {
 		LastGCPauseTimeNS:   stats.PauseNs[(stats.NumGC+255)%256],
 	}
 }
-

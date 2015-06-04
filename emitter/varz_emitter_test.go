@@ -3,27 +3,27 @@ package emitter_test
 import (
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"github.com/cloudfoundry/noaa/events"
 	"github.com/gogo/protobuf/proto"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Emitter", func() {
 	It("emits the correct varz message for ValueMetrics", func() {
 		e := emitter.New("varz-nozzle")
-		metric := 	&events.Envelope{
-			Origin: proto.String("fake-origin"),
+		metric := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_ValueMetric.Enum(),
 			ValueMetric: &events.ValueMetric{
-				Name: proto.String("contextName.metricName"),
+				Name:  proto.String("contextName.metricName"),
 				Value: proto.Float64(32.0),
-				Unit: proto.String("some-unit"),
+				Unit:  proto.String("some-unit"),
 			},
 			Deployment: proto.String("our-deployment"),
-			Ip: proto.String("192.168.0.1"),
-			Job: proto.String("doppler"),
-			Index: proto.String("0"),
+			Ip:         proto.String("192.168.0.1"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("0"),
 		}
 		e.AddMetric(metric)
 
@@ -45,18 +45,18 @@ var _ = Describe("Emitter", func() {
 
 	It("emits the correct varz message for CounterEvents", func() {
 		e := emitter.New("varz-nozzle")
-		metric := 	&events.Envelope{
-			Origin: proto.String("fake-origin"),
+		metric := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name: proto.String("contextName.metricName"),
+				Name:  proto.String("contextName.metricName"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(10),
 			},
 			Deployment: proto.String("our-deployment"),
-			Ip: proto.String("192.168.0.1"),
-			Job: proto.String("doppler"),
-			Index: proto.String("0"),
+			Ip:         proto.String("192.168.0.1"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("0"),
 		}
 		e.AddMetric(metric)
 
@@ -77,18 +77,18 @@ var _ = Describe("Emitter", func() {
 
 	It("does not emit a varzmessage if not a CounterEvent or ValueMetric", func() {
 		e := emitter.New("varz-nozzle")
-		metric := 	&events.Envelope{
-			Origin: proto.String("fake-origin"),
+		metric := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_LogMessage.Enum(),
 			LogMessage: &events.LogMessage{
-				Message: []byte("some log message"),
+				Message:     []byte("some log message"),
 				MessageType: events.LogMessage_OUT.Enum(),
-				Timestamp: proto.Int64(1000000000),
+				Timestamp:   proto.Int64(1000000000),
 			},
 			Deployment: proto.String("our-deployment"),
-			Ip: proto.String("192.168.0.1"),
-			Job: proto.String("doppler"),
-			Index: proto.String("0"),
+			Ip:         proto.String("192.168.0.1"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("0"),
 		}
 		e.AddMetric(metric)
 
@@ -98,18 +98,18 @@ var _ = Describe("Emitter", func() {
 
 	It("does not emit a duplicate varz message for an update to an existing metric", func() {
 		e := emitter.New("varz-nozzle")
-		metric1 := 	&events.Envelope{
-			Origin: proto.String("fake-origin"),
+		metric1 := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name: proto.String("contextName.metricName"),
+				Name:  proto.String("contextName.metricName"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(10),
 			},
 			Deployment: proto.String("our-deployment"),
-			Ip: proto.String("192.168.0.1"),
-			Job: proto.String("doppler"),
-			Index: proto.String("0"),
+			Ip:         proto.String("192.168.0.1"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("0"),
 		}
 		e.AddMetric(metric1)
 
@@ -122,18 +122,18 @@ var _ = Describe("Emitter", func() {
 		Expect(counterEvent.Name).To(Equal("metricName"))
 		Expect(counterEvent.Value).To(BeEquivalentTo(10))
 
-		metric2 := 	&events.Envelope{
-			Origin: proto.String("fake-origin"),
+		metric2 := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name: proto.String("contextName.metricName"),
+				Name:  proto.String("contextName.metricName"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(150),
 			},
 			Deployment: proto.String("our-deployment"),
-			Ip: proto.String("192.168.0.1"),
-			Job: proto.String("doppler"),
-			Index: proto.String("0"),
+			Ip:         proto.String("192.168.0.1"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("0"),
 		}
 		e.AddMetric(metric2)
 
@@ -149,34 +149,34 @@ var _ = Describe("Emitter", func() {
 
 	It("emits a varz message with different context names", func() {
 		e := emitter.New("varz-nozzle")
-		metric1 := 	&events.Envelope{
-			Origin: proto.String("fake-origin"),
+		metric1 := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name: proto.String("contextName1.metricName"),
+				Name:  proto.String("contextName1.metricName"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(10),
 			},
 			Deployment: proto.String("our-deployment"),
-			Ip: proto.String("192.168.0.1"),
-			Job: proto.String("doppler"),
-			Index: proto.String("0"),
+			Ip:         proto.String("192.168.0.1"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("0"),
 		}
 		e.AddMetric(metric1)
 		varzMessage := e.Emit()
 
-		metric2 := 	&events.Envelope{
-			Origin: proto.String("fake-origin"),
+		metric2 := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
 			EventType: events.Envelope_CounterEvent.Enum(),
 			CounterEvent: &events.CounterEvent{
-				Name: proto.String("contextName2.metricName"),
+				Name:  proto.String("contextName2.metricName"),
 				Delta: proto.Uint64(1),
 				Total: proto.Uint64(100),
 			},
 			Deployment: proto.String("our-deployment"),
-			Ip: proto.String("192.168.0.2"),
-			Job: proto.String("metron"),
-			Index: proto.String("1"),
+			Ip:         proto.String("192.168.0.2"),
+			Job:        proto.String("metron"),
+			Index:      proto.String("1"),
 		}
 		e.AddMetric(metric2)
 
@@ -185,35 +185,33 @@ var _ = Describe("Emitter", func() {
 		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
 		Expect(varzMessage.Contexts[1].Metrics).To(HaveLen(1))
 
-
 		Expect(varzMessage.Contexts).To(ConsistOf(
-			emitter.Context {
+			emitter.Context{
 				Name: "contextName1",
-				Metrics: []emitter.Metric {
+				Metrics: []emitter.Metric{
 					{
-						Name: "metricName",
+						Name:  "metricName",
 						Value: uint64(10),
-						Tags: map[string]interface{} {
-							"ip": "192.168.0.1",
-							"job": "doppler",
-							"index": "0",
+						Tags: map[string]interface{}{
+							"ip":         "192.168.0.1",
+							"job":        "doppler",
+							"index":      "0",
 							"deployment": "our-deployment",
 						},
 					},
 				},
 			},
-			emitter.Context {
+			emitter.Context{
 				Name: "contextName2",
-				Metrics: []emitter.Metric {
+				Metrics: []emitter.Metric{
 					{
-						Name: "metricName",
+						Name:  "metricName",
 						Value: uint64(100),
-						Tags: map[string]interface{} {
-							"ip": "192.168.0.2",
-							"job": "metron",
-							"index": "1",
+						Tags: map[string]interface{}{
+							"ip":         "192.168.0.2",
+							"job":        "metron",
+							"index":      "1",
 							"deployment": "our-deployment",
-
 						},
 					},
 				},

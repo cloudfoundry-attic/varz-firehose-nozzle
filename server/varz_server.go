@@ -1,20 +1,21 @@
 package server
+
 import (
-	"net/http"
-	"fmt"
-	"encoding/json"
-	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
-	"strings"
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
+	"net/http"
+	"strings"
 )
 
-const varzNozzleRealm="Varz Nozzle"
+const varzNozzleRealm = "Varz Nozzle"
 
 type VarzServer struct {
-	port int
+	port     int
 	username string
 	password string
-	emitter Emitter
+	emitter  Emitter
 }
 
 type Emitter interface {
@@ -28,13 +29,12 @@ type credentials struct {
 
 func New(emitter Emitter, varzPort int, varzUser string, varzPass string) *VarzServer {
 	return &VarzServer{
-		port: varzPort,
+		port:     varzPort,
 		username: varzUser,
 		password: varzPass,
-		emitter: emitter,
+		emitter:  emitter,
 	}
 }
-
 
 func (v *VarzServer) Start() error {
 
@@ -44,7 +44,7 @@ func (v *VarzServer) Start() error {
 }
 
 func (v *VarzServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if (!v.validCredentials(req)) {
+	if !v.validCredentials(req) {
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, varzNozzleRealm))
 		fmt.Fprintf(w, "%d Unauthorized", http.StatusUnauthorized)
@@ -90,5 +90,5 @@ func extractCredentials(req *http.Request) (*credentials, error) {
 		return nil, fmt.Errorf("Malformed authorization header: %s", authorizationHeader)
 	}
 
-	return &credentials {username: userAndPassword[0], password:userAndPassword[1]}, nil
+	return &credentials{username: userAndPassword[0], password: userAndPassword[1]}, nil
 }

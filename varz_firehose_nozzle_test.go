@@ -42,14 +42,13 @@ const (
 
 var fakeFirehoseInputChan chan *events.Envelope
 
-
 var _ = Describe("VarzFirehoseNozzle", func() {
 	var (
-		nozzleSession         *gexec.Session
-		natsRunner            *natsrunner.NATSRunner
-		fakeUAA               *httptest.Server
-		fakeFirehose          *httptest.Server
-		configPath            string
+		nozzleSession *gexec.Session
+		natsRunner    *natsrunner.NATSRunner
+		fakeUAA       *httptest.Server
+		fakeFirehose  *httptest.Server
+		configPath    string
 	)
 
 	BeforeEach(func() {
