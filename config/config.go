@@ -12,6 +12,7 @@ type VarzConfig struct {
 	UAAURL string
 	UAAUser string
 	UAAPass string
+	NatsType string
 	InsecureSSLSkipVerify bool
 	TrafficControllerURL string
 	FireshoseSubscriptionID string

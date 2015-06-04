@@ -1,23 +1,21 @@
 package main
 
 import (
+	"crypto/tls"
+	"flag"
+	"github.com/cloudfoundry-incubator/uaago"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/config"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/server"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/instrumentation"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
-	"time"
-	"flag"
-	"os"
-	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/config"
-	"github.com/cloudfoundry-incubator/uaago"
 	"github.com/cloudfoundry/noaa"
-	"crypto/tls"
 	"github.com/cloudfoundry/noaa/events"
-	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
-	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/server"
+	"os"
+	"time"
 )
-
-
 
 type varzHealthMonitor struct{}
 
@@ -27,7 +25,7 @@ func (*varzHealthMonitor) Ok() bool {
 
 func main() {
 	var (
-	configFilePath = flag.String("config", "config/varz_firehose_nozzle.json", "Location of the nozzle config json file")
+		configFilePath = flag.String("config", "config/varz_firehose_nozzle.json", "Location of the nozzle config json file")
 	)
 	flag.Parse()
 
@@ -80,17 +78,15 @@ func main() {
 
 	for {
 		select {
-			case envelope := <-messages:
-				varzEmitter.AddMetric(envelope)
-			case <-done:
-				consumer.Close()
+		case envelope := <-messages:
+			varzEmitter.AddMetric(envelope)
+		case <-done:
+			consumer.Close()
 		}
 	}
 }
 
-
-
-func initLogger() *gosteno.Logger{
+func initLogger() *gosteno.Logger {
 	c := &gosteno.Config{
 		Sinks: []gosteno.Sink{
 			gosteno.NewIOSink(os.Stdout),
@@ -107,7 +103,7 @@ func initLogger() *gosteno.Logger{
 func initRegistrar(config *config.VarzConfig, logger *gosteno.Logger) (*collectorregistrar.CollectorRegistrar, error) {
 	interval := time.Duration(config.CollectorRegistrarIntervalMilliseconds) * time.Millisecond
 	instrumentables := []instrumentation.Instrumentable{}
-	component, err := cfcomponent.NewComponent(logger, "MetronAgent", config.Index, &varzHealthMonitor{}, config.VarzPort, []string{config.VarzUser, config.VarzPass}, instrumentables)
+	component, err := cfcomponent.NewComponent(logger, config.NatsType, config.Index, &varzHealthMonitor{}, config.VarzPort, []string{config.VarzUser, config.VarzPass}, instrumentables)
 
 	if err != nil {
 		return nil, err

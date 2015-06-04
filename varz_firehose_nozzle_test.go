@@ -2,31 +2,30 @@ package main_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/apcera/nats"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/config"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
 	"github.com/cloudfoundry/gunk/natsrunner"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
 	"github.com/cloudfoundry/noaa/events"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
-	"github.com/gogo/protobuf/proto"
-	"log"
-	"fmt"
 	"strings"
-	"github.com/gorilla/websocket"
 	"time"
 )
 
-var (
-	fakeFirehoseInputChan chan *events.Envelope
-)
+var ()
 
 const (
 	varzUser = "varzUser"
@@ -38,115 +37,104 @@ const (
 	natsHost = "127.0.0.1"
 	natsUser = "nats"
 	natsPass = "nats"
+	natsType = "MetronAgent"
 )
+
+var fakeFirehoseInputChan chan *events.Envelope
+
 
 var _ = Describe("VarzFirehoseNozzle", func() {
 	var (
-		nozzleSession *gexec.Session
-		natsRunner    *natsrunner.NATSRunner
+		nozzleSession         *gexec.Session
+		natsRunner            *natsrunner.NATSRunner
+		fakeUAA               *httptest.Server
+		fakeFirehose          *httptest.Server
+		configPath            string
 	)
 
-	Context("NATS", func() {
-		BeforeEach(func() {
-			var err error
-			natsRunner = natsrunner.NewNATSRunner(natsPort)
-			natsRunner.Start()
+	BeforeEach(func() {
+		var err error
+		fakeFirehoseInputChan = make(chan *events.Envelope)
+		natsRunner = natsrunner.NewNATSRunner(natsPort)
+		natsRunner.Start()
 
-			nozzleCommand := exec.Command(pathToNozzleExecutable, "-config", "fixtures/test_config.json")
-			nozzleSession, err = gexec.Start(
-				nozzleCommand,
-				gexec.NewPrefixedWriter("[o][nozzle] ", GinkgoWriter),
-				gexec.NewPrefixedWriter("[e][nozzle] ", GinkgoWriter),
-			)
-			Expect(err).NotTo(HaveOccurred())
+		fakeUAA = httptest.NewServer(&fakeUAAHandler{})
+		fakeFirehose = httptest.NewServer(&fakeFirehoseHandler{})
 
-		})
+		configPath = buildConfig(fakeUAA.URL, fakeFirehose.URL)
 
-		AfterEach(func() {
-			nozzleSession.Kill().Wait()
-			natsRunner.Stop()
-		})
-
-		It("registers itself with collector over NATS", func() {
-			messageChan := make(chan []byte)
-			natsClient := natsRunner.MessageBus
-			natsClient.Subscribe(collectorregistrar.AnnounceComponentMessageSubject, func(msg *nats.Msg) {
-				messageChan <- msg.Data
-			})
-
-			Eventually(messageChan).Should(Receive(MatchRegexp(`^\{"type":"MetronAgent","index":42,"host":"[^:]*:1234","uuid":"42-[0-9a-f-]{36}","credentials":\["admin","admin"\]\}$`)))
-		})
-	})
-
-	FContext("Varz-Nozzle", func() {
-		var (
-			fakeUAA               *httptest.Server
-			fakeFirehose          *httptest.Server
-			configPath            string
-		)
-		BeforeEach(func() {
-			var err error
-			fakeFirehoseInputChan = make(chan *events.Envelope)
-			natsRunner = natsrunner.NewNATSRunner(natsPort)
-			natsRunner.Start()
-
-			fakeUAA = httptest.NewServer(&fakeUAAHandler{})
-			fakeFirehose = httptest.NewServer(&fakeFirehoseHandler{})
-
-			configPath = buildConfig(fakeUAA.URL, fakeFirehose.URL)
-
-			nozzleCommand := exec.Command(pathToNozzleExecutable, "-config", configPath)
-			nozzleSession, err = gexec.Start(
+		nozzleCommand := exec.Command(pathToNozzleExecutable, "-config", configPath)
+		nozzleSession, err = gexec.Start(
 			nozzleCommand,
 			gexec.NewPrefixedWriter("[o][nozzle] ", GinkgoWriter),
 			gexec.NewPrefixedWriter("[e][nozzle] ", GinkgoWriter),
-			)
-			Expect(err).NotTo(HaveOccurred())
+		)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		nozzleSession.Kill().Wait()
+		natsRunner.Stop()
+		fakeUAA.Close()
+		close(fakeFirehoseInputChan)
+		fakeFirehose.Close()
+		os.Remove(configPath)
+	})
+
+	It("registers itself with collector over NATS", func() {
+		messageChan := make(chan []byte)
+		natsClient := natsRunner.MessageBus
+		natsClient.Subscribe(collectorregistrar.AnnounceComponentMessageSubject, func(msg *nats.Msg) {
+			messageChan <- msg.Data
 		})
 
-		AfterEach(func() {
-			nozzleSession.Kill().Wait()
-			natsRunner.Stop()
-			fakeUAA.Close()
-			fakeFirehose.Close()
-			os.Remove(configPath)
-		})
+		Eventually(messageChan).Should(Receive(MatchRegexp(`^\{"type":"MetronAgent","index":0,"host":"[^:]*:1234","uuid":"[0-9]-[0-9a-f-]{36}","credentials":\["varzUser","varzPass"\]\}$`)))
+	})
 
-		It("emits messages to the varz-nozzle", func(done Done) {
-			defer close(done)
-			println("adding to firehose input chan")
-			fakeFirehoseInputChan <- &events.Envelope{
-				Origin:    proto.String("origin"),
-				Timestamp: proto.Int64(1000000000),
-				EventType: events.Envelope_ValueMetric.Enum(),
-				ValueMetric: &events.ValueMetric{
-					Name:  proto.String("context.metricName"),
-					Value: proto.Float64(5),
-					Unit:  proto.String("gauge"),
-				},
-				Deployment: proto.String("deployment-name"),
-				Job:        proto.String("doppler"),
-				Index: 		proto.String("0"),
-				Ip:			proto.String("127.0.0.1"),
-			}
-			close(fakeFirehoseInputChan)
+	It("emits messages to the varz-nozzle", func(done Done) {
+		defer close(done)
+		fakeFirehoseInputChan <- &events.Envelope{
+			Origin:    proto.String("origin"),
+			Timestamp: proto.Int64(1000000000),
+			EventType: events.Envelope_ValueMetric.Enum(),
+			ValueMetric: &events.ValueMetric{
+				Name:  proto.String("context.metricName"),
+				Value: proto.Float64(5),
+				Unit:  proto.String("gauge"),
+			},
+			Deployment: proto.String("deployment-name"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("0"),
+			Ip:         proto.String("127.0.0.1"),
+		}
 
-			println(fakeFirehose.URL)
-			println(fakeUAA.URL)
+		request, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/varz", varzPort), nil)
+		Expect(err).ToNot(HaveOccurred())
 
-			request, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/varz", varzPort), nil)
-			Expect(err).ToNot(HaveOccurred())
+		request.SetBasicAuth(varzUser, varzPass)
 
-			request.SetBasicAuth(varzUser, varzPass)
+		resp, err := http.DefaultClient.Do(request)
 
-			resp, err := http.DefaultClient.Do(request)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		jsonBytes, err := ioutil.ReadAll(resp.Body)
+		Expect(err).ToNot(HaveOccurred())
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			jsonBytes, err := ioutil.ReadAll(resp.Body)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(jsonBytes).To(MatchJSON("{}"))
-		})
+		var message emitter.VarzMessage
+		err = json.Unmarshal(jsonBytes, &message)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(message.Contexts).To(HaveLen(1))
+		context := message.Contexts[0]
+		Expect(context.Name).To(Equal("context"))
+		Expect(context.Metrics).To(HaveLen(1))
+		metric := context.Metrics[0]
+		Expect(metric.Name).To(Equal("metricName"))
+		Expect(metric.Value).To(BeEquivalentTo(5))
+		Expect(metric.Tags).To(HaveKeyWithValue("deployment", "deployment-name"))
+		Expect(metric.Tags).To(HaveKeyWithValue("job", "doppler"))
+		Expect(metric.Tags).To(HaveKeyWithValue("index", "0"))
+		Expect(metric.Tags).To(HaveKeyWithValue("ip", "127.0.0.1"))
+
 	})
 })
 
@@ -171,6 +159,7 @@ func buildConfig(uaaURL string, firehoseURL string) string {
 			NatsUser:  natsUser,
 			NatsPass:  natsPass,
 		},
+		NatsType: natsType,
 	}
 
 	jsonBytes, err := json.Marshal(&config)
@@ -188,7 +177,7 @@ type fakeUAAHandler struct{}
 
 func (f *fakeUAAHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
-	w.Write([]byte( `
+	w.Write([]byte(`
 		{
 			"token_type": "bearer",
 			"access_token": "good-token"
@@ -216,7 +205,6 @@ func (f *fakeFirehoseHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	defer ws.Close()
 	defer ws.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Time{})
-
 
 	for envelope := range fakeFirehoseInputChan {
 		buffer, err := proto.Marshal(envelope)
