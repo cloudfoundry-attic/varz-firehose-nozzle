@@ -58,14 +58,14 @@ func main() {
 	errs := make(chan error)
 	go consumer.Firehose(config.FirehoseSubscriptionID, authToken, messages, errs)
 
-	registrar, err := initRegistrar(config, logger)
+	component, registrar, err := initRegistrar(config, logger)
 	if err != nil {
 		logger.Fatal(err.Error())
 		return
 	}
 
 	varzEmitter := emitter.New("varz-nozzle")
-	varzServer := server.New(varzEmitter, int(config.VarzPort), config.VarzUser, config.VarzPass)
+	varzServer := server.New(varzEmitter, int(component.StatusPort), component.StatusCredentials[0], component.StatusCredentials[1])
 
 	go varzServer.Start()
 	go registrar.Run()
@@ -104,16 +104,16 @@ func initLogger() *gosteno.Logger {
 	return gosteno.NewLogger("Varz Firehose Nozzle")
 }
 
-func initRegistrar(config *config.VarzConfig, logger *gosteno.Logger) (*collectorregistrar.CollectorRegistrar, error) {
+func initRegistrar(config *config.VarzConfig, logger *gosteno.Logger) (*cfcomponent.Component, *collectorregistrar.CollectorRegistrar, error) {
 	interval := time.Duration(config.CollectorRegistrarIntervalMilliseconds) * time.Millisecond
 	instrumentables := []instrumentation.Instrumentable{}
 	component, err := cfcomponent.NewComponent(logger, config.NatsType, config.Index, &varzHealthMonitor{}, config.VarzPort, []string{config.VarzUser, config.VarzPass}, instrumentables)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	registrar := collectorregistrar.NewCollectorRegistrar(cfcomponent.DefaultYagnatsClientProvider, component, interval, &config.Config)
 
-	return registrar, nil
+	return &component, registrar, nil
 }
