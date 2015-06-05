@@ -56,15 +56,7 @@ func main() {
 		nil)
 	messages := make(chan *events.Envelope)
 	errs := make(chan error)
-	done := make(chan struct{})
-
 	go consumer.Firehose(config.FirehoseSubscriptionID, authToken, messages, errs)
-
-	go func() {
-		err := <-errs
-		logger.Errorf("Error while reading from the firehose: %s", err.Error())
-		close(done)
-	}()
 
 	registrar, err := initRegistrar(config, logger)
 	if err != nil {
@@ -78,13 +70,21 @@ func main() {
 	go varzServer.Start()
 	go registrar.Run()
 
+	defer logger.Info("Exiting")
 	for {
 		select {
-		case envelope := <-messages:
+		case envelope, ok := <-messages:
+			if !ok {
+				consumer.Close()
+				return
+			}
 			varzEmitter.AddMetric(envelope)
-		case <-done:
-			consumer.Close()
-			return
+		case err, ok := <-errs:
+			if !ok {
+				consumer.Close()
+				return
+			}
+			logger.Errorf("Error while reading from the firehose: %s", err.Error())
 		}
 	}
 }
