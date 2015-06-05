@@ -19,12 +19,12 @@ import (
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
 	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/cloudfoundry/yagnats"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-	"github.com/cloudfoundry/yagnats"
 )
 
 var ()
@@ -190,7 +190,7 @@ func getNatsMessage(natsClient yagnats.NATSConn) natsMessage {
 	})
 
 	var message natsMessage
-	messageBytes := <- messageChan
+	messageBytes := <-messageChan
 	err := json.Unmarshal(messageBytes, &message)
 	if err != nil {
 		panic(err)
