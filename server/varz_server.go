@@ -38,7 +38,6 @@ func New(emitter Emitter, varzPort int, varzUser string, varzPass string) *VarzS
 }
 
 func (v *VarzServer) Start() error {
-
 	http.Handle("/varz", v)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", v.port), nil)
 	return err

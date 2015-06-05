@@ -70,6 +70,7 @@ func main() {
 	go varzServer.Start()
 	go registrar.Run()
 
+	logger.Info("Started listening for messages")
 	defer logger.Info("Exiting")
 	for {
 		select {
