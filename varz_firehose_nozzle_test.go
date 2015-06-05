@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"github.com/cloudfoundry/yagnats"
 )
 
 var ()
@@ -81,14 +82,15 @@ var _ = Describe("VarzFirehoseNozzle", func() {
 		os.Remove(configPath)
 	})
 
-	It("registers itself with collector over NATS", func() {
-		messageChan := make(chan []byte)
-		natsClient := natsRunner.MessageBus
-		natsClient.Subscribe(collectorregistrar.AnnounceComponentMessageSubject, func(msg *nats.Msg) {
-			messageChan <- msg.Data
-		})
+	It("registers itself with collector over NATS", func(done Done) {
+		defer close(done)
+		message := getNatsMessage(natsRunner.MessageBus)
 
-		Eventually(messageChan).Should(Receive(MatchRegexp(`^\{"type":"MetronAgent","index":0,"host":"[^:]*:1234","uuid":"[0-9]-[0-9a-f-]{36}","credentials":\["varzUser","varzPass"\]\}$`)))
+		Expect(message.Type).To(Equal("MetronAgent"))
+		Expect(message.Index).To(Equal(0))
+		Expect(message.Host).To(MatchRegexp("[^:]*:[0-9]+"))
+		Expect(message.UUID).To(MatchRegexp("[0-9]-[0-9a-f-]{36}"))
+		Expect(message.Credentials).To(ConsistOf("varzUser", "varzPass"))
 	})
 
 	It("emits messages to the varz-nozzle", func(done Done) {
@@ -171,6 +173,30 @@ func buildConfig(uaaURL string, firehoseURL string) string {
 
 	tmpFile.Close()
 	return tmpFile.Name()
+}
+
+type natsMessage struct {
+	Type        string   `json:"type"`
+	Index       int      `json:"index"`
+	Host        string   `json:"host"`
+	UUID        string   `json:"uuid"`
+	Credentials []string `json:"credentials"`
+}
+
+func getNatsMessage(natsClient yagnats.NATSConn) natsMessage {
+	messageChan := make(chan []byte)
+	natsClient.Subscribe(collectorregistrar.AnnounceComponentMessageSubject, func(msg *nats.Msg) {
+		messageChan <- msg.Data
+	})
+
+	var message natsMessage
+	messageBytes := <- messageChan
+	err := json.Unmarshal(messageBytes, &message)
+	if err != nil {
+		panic(err)
+	}
+
+	return message
 }
 
 type fakeUAAHandler struct{}
