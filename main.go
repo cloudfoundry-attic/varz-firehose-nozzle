@@ -15,7 +15,8 @@ import (
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/instrumentation"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
 	"github.com/cloudfoundry/noaa"
-	"github.com/cloudfoundry/sonde-go/events"
+	//	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/varzfirehosenozzle"
 )
 
 type varzHealthMonitor struct{}
@@ -54,9 +55,6 @@ func main() {
 		config.TrafficControllerURL,
 		&tls.Config{InsecureSkipVerify: config.InsecureSSLSkipVerify},
 		nil)
-	messages := make(chan *events.Envelope)
-	errs := make(chan error)
-	go consumer.Firehose(config.FirehoseSubscriptionID, authToken, messages, errs)
 
 	component, registrar, err := initRegistrar(config, logger)
 	if err != nil {
@@ -65,29 +63,16 @@ func main() {
 	}
 
 	varzEmitter := emitter.New("varz-nozzle")
-	varzServer := server.New(varzEmitter, int(component.StatusPort), component.StatusCredentials[0], component.StatusCredentials[1])
 
+	varzServer := server.New(varzEmitter, int(component.StatusPort), component.StatusCredentials[0], component.StatusCredentials[1])
 	go varzServer.Start()
 	go registrar.Run()
 
 	logger.Info("Started listening for messages")
 	defer logger.Info("Exiting")
-	for {
-		select {
-		case envelope, ok := <-messages:
-			if !ok {
-				consumer.Close()
-				return
-			}
-			varzEmitter.AddMetric(envelope)
-		case err, ok := <-errs:
-			if !ok {
-				consumer.Close()
-				return
-			}
-			logger.Errorf("Error while reading from the firehose: %s", err.Error())
-		}
-	}
+
+	firehoseNozzle := varzfirehosenozzle.NewVarzFirehoseNozzle(config.FirehoseSubscriptionID, authToken, consumer, varzEmitter, logger)
+	firehoseNozzle.Run()
 }
 
 func initLogger() *gosteno.Logger {
