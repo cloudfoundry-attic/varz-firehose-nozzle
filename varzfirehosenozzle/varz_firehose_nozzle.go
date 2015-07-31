@@ -3,6 +3,9 @@ package varzfirehosenozzle
 import (
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/gorilla/websocket"
+	"strconv"
+	"strings"
 )
 
 type FirehoseConsumer interface {
@@ -12,6 +15,7 @@ type FirehoseConsumer interface {
 
 type Emitter interface {
 	AddMetric(env *events.Envelope)
+	AlertSlowConsumerError()
 }
 
 type VarzFirehoseNozzle struct {
@@ -44,13 +48,36 @@ func (n *VarzFirehoseNozzle) Run() {
 				n.consumer.Close()
 				return
 			}
-			n.varzEmitter.AddMetric(envelope)
+			n.handleMessage(envelope)
 		case err, ok := <-errs:
 			if !ok {
 				n.consumer.Close()
 				return
 			}
-			n.logger.Errorf("Error while reading from the firehose: %s", err.Error())
+			n.handleError(err)
 		}
 	}
+}
+
+func (n *VarzFirehoseNozzle) handleMessage(message *events.Envelope) {
+	n.varzEmitter.AddMetric(message)
+	if n.isSlowConsumerAlert(message) && message.CounterEvent.GetDelta() != 0 {
+		n.varzEmitter.AlertSlowConsumerError()
+	}
+}
+
+func (n *VarzFirehoseNozzle) isSlowConsumerAlert(message *events.Envelope) bool {
+	return message.GetEventType() == events.Envelope_CounterEvent && message.CounterEvent.GetName() == "TruncatingBuffer.DroppedMessages"
+}
+
+func (n *VarzFirehoseNozzle) handleError(err error) {
+	n.logger.Errorf("Error while reading from the firehose: %s", err.Error())
+	if isCloseError(err) {
+		n.varzEmitter.AlertSlowConsumerError()
+	}
+}
+
+func isCloseError(err error) bool {
+	errorMsg := "websocket: close " + strconv.Itoa(websocket.CloseInternalServerErr)
+	return strings.Contains(err.Error(), errorMsg)
 }

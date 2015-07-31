@@ -11,7 +11,7 @@ import (
 
 func TestVarzFirehoseNozzle(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "VarzFirehoseNozzle Suite")
+	RunSpecs(t, "VarzFirehoseNozzle Integration Suite")
 }
 
 var pathToNozzleExecutable string

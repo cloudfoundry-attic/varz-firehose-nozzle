@@ -15,6 +15,7 @@ import (
 	"github.com/apcera/nats"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/config"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/testhelpers"
 	"github.com/cloudfoundry/gunk/natsrunner"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
@@ -44,7 +45,7 @@ const (
 
 var fakeFirehoseInputChan chan *events.Envelope
 
-var _ = Describe("VarzFirehoseNozzle", func() {
+var _ = Describe("VarzFirehoseNozzle Integration", func() {
 	var (
 		nozzleSession *gexec.Session
 		natsRunner    *natsrunner.NATSRunner
@@ -125,9 +126,11 @@ var _ = Describe("VarzFirehoseNozzle", func() {
 		var message emitter.VarzMessage
 		err = json.Unmarshal(jsonBytes, &message)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(message.Contexts).To(HaveLen(1))
-		context := message.Contexts[0]
-		Expect(context.Name).To(Equal("origin"))
+
+		Expect(message.Contexts).To(HaveLen(1 + testhelpers.VarzSlowConsumerContext))
+		context := testhelpers.FindContext("origin", message.Contexts)
+		Expect(context).NotTo(BeNil())
+
 		Expect(context.Metrics).To(HaveLen(1))
 		metric := context.Metrics[0]
 		Expect(metric.Name).To(Equal("metric.name"))

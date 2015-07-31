@@ -4,6 +4,7 @@ import (
 	"runtime"
 
 	"github.com/cloudfoundry/sonde-go/events"
+	"github.com/pivotal-golang/localip"
 )
 
 type VarzEmitter struct {
@@ -86,7 +87,34 @@ func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 
 }
 
+func (e *VarzEmitter) AlertSlowConsumerError() {
+	tags := make(map[string]interface{})
+
+	ipAddress, err := localip.LocalIP()
+	if err != nil {
+		panic(err)
+	}
+
+	tags["ip"] = ipAddress
+	contextName := "varz-nozzle"
+	name := "slowConsumerAlert"
+	value := uint64(1)
+
+	if _, ok := e.contextMap[contextName]; !ok {
+		e.contextMap[contextName] = contextMetricsMap{Metrics: make(map[string]Metric)}
+	}
+
+	context := e.contextMap[contextName]
+	context.Metrics[name] = Metric{
+		Name:  name,
+		Value: value,
+		Tags:  tags,
+	}
+}
+
 func (e *VarzEmitter) Emit() *VarzMessage {
+	e.populateInternalMetrics()
+
 	contexts := make([]Context, len(e.contextMap))
 	var i = 0
 	for contextName, contextMetricsMap := range e.contextMap {
@@ -94,6 +122,8 @@ func (e *VarzEmitter) Emit() *VarzMessage {
 		contexts[i] = Context{Name: contextName, Metrics: metrics}
 		i++
 	}
+
+	delete(e.contextMap, "varz-nozzle")
 
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
@@ -105,6 +135,42 @@ func (e *VarzEmitter) Emit() *VarzMessage {
 		NumGoRoutines: runtime.NumGoroutine(),
 		MemoryStats:   mapMemStats(&memStats),
 	}
+}
+
+func (e *VarzEmitter) populateInternalMetrics() {
+	e.ensureVarzNozzleContext()
+	e.ensureSlowConsumerAlertMetric()
+}
+
+func (e *VarzEmitter) ensureVarzNozzleContext() {
+	_, hasVarzContext := e.contextMap["varz-nozzle"]
+	if !hasVarzContext {
+		e.contextMap["varz-nozzle"] = contextMetricsMap{Metrics: make(map[string]Metric)}
+	}
+}
+
+func (e *VarzEmitter) ensureSlowConsumerAlertMetric() {
+	varzNozzleContext := e.contextMap["varz-nozzle"]
+	_, hasSlowConsumerAlert := varzNozzleContext.Metrics["slowConsumerAlert"]
+	if !hasSlowConsumerAlert {
+		varzNozzleContext.Metrics["slowConsumerAlert"] = defaultSlowConsumerMetric()
+	}
+}
+
+func defaultSlowConsumerMetric() Metric {
+	ipAddress, err := localip.LocalIP()
+	if err != nil {
+		panic(err)
+	}
+
+	defaultSlowConsumerMetric := Metric{
+		Name:  "slowConsumerAlert",
+		Value: 0,
+		Tags: map[string]interface{}{
+			"ip": ipAddress,
+		},
+	}
+	return defaultSlowConsumerMetric
 }
 
 func getMetrics(metricMap contextMetricsMap) []Metric {

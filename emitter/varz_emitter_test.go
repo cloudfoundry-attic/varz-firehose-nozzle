@@ -3,6 +3,7 @@ package emitter_test
 import (
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
 
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/testhelpers"
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
@@ -28,11 +29,12 @@ var _ = Describe("Emitter", func() {
 		e.AddMetric(metric)
 
 		varzMessage := e.Emit()
-		Expect(varzMessage.Contexts).To(HaveLen(1))
-		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
+		Expect(varzMessage.Contexts).To(HaveLen(1 + testhelpers.VarzSlowConsumerContext))
 
-		context := varzMessage.Contexts[0]
-		Expect(context.Name).To(Equal("fake-origin"))
+		context := testhelpers.FindContext("fake-origin", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+		Expect(context.Metrics).To(HaveLen(1))
+
 		valueMetric := context.Metrics[0]
 		Expect(valueMetric.Name).To(Equal("metric.name"))
 		Expect(valueMetric.Value).To(BeEquivalentTo(32.0))
@@ -61,11 +63,12 @@ var _ = Describe("Emitter", func() {
 		e.AddMetric(metric)
 
 		varzMessage := e.Emit()
-		Expect(varzMessage.Contexts).To(HaveLen(1))
-		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
+		Expect(varzMessage.Contexts).To(HaveLen(1 + testhelpers.VarzSlowConsumerContext))
 
-		context := varzMessage.Contexts[0]
-		Expect(context.Name).To(Equal("fake-origin"))
+		context := testhelpers.FindContext("fake-origin", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+		Expect(context.Metrics).To(HaveLen(1))
+
 		counterEvent := context.Metrics[0]
 		Expect(counterEvent.Name).To(Equal("metric.name"))
 		Expect(counterEvent.Value).To(BeEquivalentTo(10))
@@ -93,7 +96,10 @@ var _ = Describe("Emitter", func() {
 		e.AddMetric(metric)
 
 		varzMessage := e.Emit()
-		Expect(varzMessage.Contexts).To(HaveLen(0))
+		Expect(varzMessage.Contexts).To(HaveLen(testhelpers.VarzSlowConsumerContext))
+
+		context := testhelpers.FindContext("fake-origin", varzMessage.Contexts)
+		Expect(context).To(BeNil())
 	})
 
 	It("does not emit a duplicate varz message for an update to an existing metric", func() {
@@ -114,10 +120,12 @@ var _ = Describe("Emitter", func() {
 		e.AddMetric(metric1)
 
 		varzMessage := e.Emit()
-		Expect(varzMessage.Contexts).To(HaveLen(1))
-		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
-		context := varzMessage.Contexts[0]
-		Expect(context.Name).To(Equal("fake-origin"))
+		Expect(varzMessage.Contexts).To(HaveLen(1 + testhelpers.VarzSlowConsumerContext))
+
+		context := testhelpers.FindContext("fake-origin", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+		Expect(context.Metrics).To(HaveLen(1))
+
 		counterEvent := context.Metrics[0]
 		Expect(counterEvent.Name).To(Equal("metric.name"))
 		Expect(counterEvent.Value).To(BeEquivalentTo(10))
@@ -138,10 +146,12 @@ var _ = Describe("Emitter", func() {
 		e.AddMetric(metric2)
 
 		varzMessage = e.Emit()
-		Expect(varzMessage.Contexts).To(HaveLen(1))
-		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
-		context = varzMessage.Contexts[0]
-		Expect(context.Name).To(Equal("fake-origin"))
+		Expect(varzMessage.Contexts).To(HaveLen(1 + testhelpers.VarzSlowConsumerContext))
+
+		context = testhelpers.FindContext("fake-origin", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+		Expect(context.Metrics).To(HaveLen(1))
+
 		counterEvent = context.Metrics[0]
 		Expect(counterEvent.Name).To(Equal("metric.name"))
 		Expect(counterEvent.Value).To(BeEquivalentTo(150))
@@ -181,41 +191,44 @@ var _ = Describe("Emitter", func() {
 		e.AddMetric(metric2)
 
 		varzMessage = e.Emit()
-		Expect(varzMessage.Contexts).To(HaveLen(2))
-		Expect(varzMessage.Contexts[0].Metrics).To(HaveLen(1))
-		Expect(varzMessage.Contexts[1].Metrics).To(HaveLen(1))
+		Expect(varzMessage.Contexts).To(HaveLen(2 + testhelpers.VarzSlowConsumerContext))
 
-		Expect(varzMessage.Contexts).To(ConsistOf(
-			emitter.Context{
-				Name: "fake-origin-1",
-				Metrics: []emitter.Metric{
-					{
-						Name:  "metric.name",
-						Value: uint64(10),
-						Tags: map[string]interface{}{
-							"ip":         "192.168.0.1",
-							"job":        "doppler",
-							"index":      "0",
-							"deployment": "our-deployment",
-						},
-					},
+		context1 := testhelpers.FindContext("fake-origin-1", varzMessage.Contexts)
+		Expect(context1).NotTo(BeNil())
+		Expect(context1.Metrics).To(HaveLen(1))
+
+		context2 := testhelpers.FindContext("fake-origin-2", varzMessage.Contexts)
+		Expect(context2).NotTo(BeNil())
+		Expect(context2.Metrics).To(HaveLen(1))
+
+		Expect(context1.Metrics).To(HaveLen(1))
+		Expect(context2.Metrics).To(HaveLen(1))
+
+		Expect(context1.Metrics[0]).To(Equal(
+			emitter.Metric{
+				Name:  "metric.name",
+				Value: uint64(10),
+				Tags: map[string]interface{}{
+					"ip":         "192.168.0.1",
+					"job":        "doppler",
+					"index":      "0",
+					"deployment": "our-deployment",
 				},
 			},
-			emitter.Context{
-				Name: "fake-origin-2",
-				Metrics: []emitter.Metric{
-					{
-						Name:  "metric.name",
-						Value: uint64(100),
-						Tags: map[string]interface{}{
-							"ip":         "192.168.0.2",
-							"job":        "metron",
-							"index":      "1",
-							"deployment": "our-deployment",
-						},
-					},
+		))
+
+		Expect(context2.Metrics[0]).To(Equal(
+			emitter.Metric{
+				Name:  "metric.name",
+				Value: uint64(100),
+				Tags: map[string]interface{}{
+					"ip":         "192.168.0.2",
+					"job":        "metron",
+					"index":      "1",
+					"deployment": "our-deployment",
 				},
-			}))
+			},
+		))
 	})
 
 	It("emits runtime stats in varz message", func() {
@@ -232,4 +245,61 @@ var _ = Describe("Emitter", func() {
 		Expect(varzMessage.MemoryStats.NumMallocs).To(BeNumerically(">", 0))
 	})
 
+	It("emits metrics about slow consumer alerts when the nozzle receives an alert", func() {
+		e := emitter.New("varz-nozzle")
+		e.AlertSlowConsumerError()
+
+		varzMessage := e.Emit()
+		Expect(varzMessage.Contexts).To(HaveLen(1))
+
+		context := testhelpers.FindContext("varz-nozzle", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+
+		Expect(context.Metrics).To(HaveLen(1))
+		counterMetric := context.Metrics[0]
+		Expect(counterMetric.Name).To(Equal("slowConsumerAlert"))
+		Expect(counterMetric.Value).To(BeEquivalentTo(1))
+	})
+
+	It("emits metrics about slow consumer alerts when the nozzle does not receive an alert", func() {
+		e := emitter.New("varz-nozzle")
+
+		varzMessage := e.Emit()
+		Expect(varzMessage.Contexts).To(HaveLen(1))
+
+		context := testhelpers.FindContext("varz-nozzle", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+
+		Expect(context.Metrics).To(HaveLen(1))
+		counterMetric := context.Metrics[0]
+		Expect(counterMetric.Name).To(Equal("slowConsumerAlert"))
+		Expect(counterMetric.Value).To(BeEquivalentTo(0))
+	})
+
+	It("figures out a way to reset the slow consumer alert", func() {
+		e := emitter.New("varz-nozzle")
+		e.AlertSlowConsumerError()
+
+		varzMessage := e.Emit()
+		Expect(varzMessage.Contexts).To(HaveLen(1))
+
+		context := testhelpers.FindContext("varz-nozzle", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+
+		Expect(context.Metrics).To(HaveLen(1))
+		counterMetric := context.Metrics[0]
+		Expect(counterMetric.Name).To(Equal("slowConsumerAlert"))
+		Expect(counterMetric.Value).To(BeEquivalentTo(1))
+
+		varzMessage = e.Emit()
+		Expect(varzMessage.Contexts).To(HaveLen(1))
+
+		context = testhelpers.FindContext("varz-nozzle", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+
+		Expect(context.Metrics).To(HaveLen(1))
+		counterMetric = context.Metrics[0]
+		Expect(counterMetric.Name).To(Equal("slowConsumerAlert"))
+		Expect(counterMetric.Value).To(BeEquivalentTo(0))
+	})
 })
