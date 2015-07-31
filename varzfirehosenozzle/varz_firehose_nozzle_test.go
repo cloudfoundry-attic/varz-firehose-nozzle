@@ -28,6 +28,7 @@ var _ = Describe("VarzFirehoseNozzle", func() {
 		}
 		logger = loggertesthelper.Logger()
 		nozzle = NewVarzFirehoseNozzle("firehose-a", "auth-token", fakeFirehoseConsumer, fakeVarzEmitter, logger)
+		loggertesthelper.TestLoggerSink.Clear()
 	})
 
 	It("adds metrics to the VarzEmitter when it receives metrics from the firehose", func() {
@@ -102,6 +103,9 @@ var _ = Describe("VarzFirehoseNozzle", func() {
 
 		<-fakeVarzEmitter.alertReadyChan
 		Eventually(func() bool { return fakeVarzEmitter.alerted }).Should(BeTrue())
+
+		Expect(loggertesthelper.TestLoggerSink.LogContents()).To(ContainSubstring("We've intercepted an upstream message which indicates that the nozzle or the TrafficController is not keeping up. Please try scaling up the nozzle."))
+
 		close(done)
 	})
 
@@ -115,6 +119,7 @@ var _ = Describe("VarzFirehoseNozzle", func() {
 
 		<-fakeVarzEmitter.alertReadyChan
 		Eventually(func() bool { return fakeVarzEmitter.alerted }).Should(BeTrue())
+		Expect(loggertesthelper.TestLoggerSink.LogContents()).To(ContainSubstring("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle."))
 		close(done)
 	})
 })

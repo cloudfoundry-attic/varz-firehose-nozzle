@@ -62,6 +62,7 @@ func (n *VarzFirehoseNozzle) Run() {
 func (n *VarzFirehoseNozzle) handleMessage(message *events.Envelope) {
 	n.varzEmitter.AddMetric(message)
 	if n.isSlowConsumerAlert(message) && message.CounterEvent.GetDelta() != 0 {
+		n.logger.Warn("We've intercepted an upstream message which indicates that the nozzle or the TrafficController is not keeping up. Please try scaling up the nozzle.")
 		n.varzEmitter.AlertSlowConsumerError()
 	}
 }
@@ -73,6 +74,7 @@ func (n *VarzFirehoseNozzle) isSlowConsumerAlert(message *events.Envelope) bool 
 func (n *VarzFirehoseNozzle) handleError(err error) {
 	n.logger.Errorf("Error while reading from the firehose: %s", err.Error())
 	if isCloseError(err) {
+		n.logger.Warn("Disconnected because nozzle couldn't keep up. Please try scaling up the nozzle.")
 		n.varzEmitter.AlertSlowConsumerError()
 	}
 }
