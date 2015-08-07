@@ -10,13 +10,15 @@ import (
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/config"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/emitter"
 	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/server"
+	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/varzfirehosenozzle"
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/instrumentation"
 	"github.com/cloudfoundry/loggregatorlib/cfcomponent/registrars/collectorregistrar"
 	"github.com/cloudfoundry/noaa"
-	//	"github.com/cloudfoundry/sonde-go/events"
-	"github.com/cloudfoundry-incubator/varz-firehose-nozzle/varzfirehosenozzle"
+	"os/signal"
+	"runtime/pprof"
+	"syscall"
 )
 
 type varzHealthMonitor struct{}
@@ -62,6 +64,10 @@ func main() {
 		return
 	}
 
+	threadDumpChan := registerGoRoutineDumpSignalChannel()
+	defer close(threadDumpChan)
+	go dumpGoRoutine(threadDumpChan)
+
 	varzEmitter := emitter.New("varz-nozzle")
 
 	varzServer := server.New(varzEmitter, int(component.StatusPort), component.StatusCredentials[0], component.StatusCredentials[1])
@@ -101,4 +107,20 @@ func initRegistrar(config *config.VarzConfig, logger *gosteno.Logger) (*cfcompon
 	registrar := collectorregistrar.NewCollectorRegistrar(cfcomponent.DefaultYagnatsClientProvider, component, interval, &config.Config)
 
 	return &component, registrar, nil
+}
+
+func registerGoRoutineDumpSignalChannel() chan os.Signal {
+	threadDumpChan := make(chan os.Signal, 1)
+	signal.Notify(threadDumpChan, syscall.SIGUSR1)
+
+	return threadDumpChan
+}
+
+func dumpGoRoutine(dumpChan chan os.Signal) {
+	for range dumpChan {
+		goRoutineProfiles := pprof.Lookup("goroutine")
+		if goRoutineProfiles != nil {
+			goRoutineProfiles.WriteTo(os.Stdout, 2)
+		}
+	}
 }
