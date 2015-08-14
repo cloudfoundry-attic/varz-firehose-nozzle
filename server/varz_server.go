@@ -20,7 +20,7 @@ type VarzServer struct {
 }
 
 type Emitter interface {
-	Emit() *emitter.VarzMessage
+	Emit(job string, index int) *emitter.VarzMessage
 }
 
 type credentials struct {
@@ -51,7 +51,7 @@ func (v *VarzServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	message := v.emitter.Emit()
+	message := v.emitter.Emit("job", 0)
 	json, err := json.Marshal(message)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
