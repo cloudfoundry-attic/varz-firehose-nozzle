@@ -157,6 +157,74 @@ var _ = Describe("Emitter", func() {
 		Expect(counterEvent.Value).To(BeEquivalentTo(150))
 	})
 
+	It("does not override metrics with the same name but different tags", func() {
+		e := emitter.New("varz-nozzle")
+		metric1 := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
+			EventType: events.Envelope_CounterEvent.Enum(),
+			CounterEvent: &events.CounterEvent{
+				Name:  proto.String("metric.name"),
+				Delta: proto.Uint64(1),
+				Total: proto.Uint64(10),
+			},
+			Deployment: proto.String("our-deployment"),
+			Ip:         proto.String("192.168.0.1"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("0"),
+		}
+		e.AddMetric(metric1)
+
+		varzMessage := e.Emit()
+		Expect(varzMessage.Contexts).To(HaveLen(1 + testhelpers.VarzSlowConsumerContext))
+
+		context := testhelpers.FindContext("fake-origin", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+		Expect(context.Metrics).To(HaveLen(1))
+
+		counterEvent := context.Metrics[0]
+		Expect(counterEvent.Name).To(Equal("metric.name"))
+		Expect(counterEvent.Value).To(BeEquivalentTo(10))
+
+		metric2 := &events.Envelope{
+			Origin:    proto.String("fake-origin"),
+			EventType: events.Envelope_CounterEvent.Enum(),
+			CounterEvent: &events.CounterEvent{
+				Name:  proto.String("metric.name"),
+				Delta: proto.Uint64(1),
+				Total: proto.Uint64(150),
+			},
+			Deployment: proto.String("our-deployment"),
+			Ip:         proto.String("192.168.0.1"),
+			Job:        proto.String("doppler"),
+			Index:      proto.String("1"),
+		}
+		e.AddMetric(metric2)
+
+		varzMessage = e.Emit()
+		Expect(varzMessage.Contexts).To(HaveLen(1 + testhelpers.VarzSlowConsumerContext))
+
+		context = testhelpers.FindContext("fake-origin", varzMessage.Contexts)
+		Expect(context).NotTo(BeNil())
+		Expect(context.Metrics).To(HaveLen(2))
+
+		// Make some more assertion about the contents
+		emittedMetric1 := context.Metrics[0]
+		Expect(emittedMetric1.Name).To(Equal("metric.name"))
+		Expect(emittedMetric1.Value).To(BeEquivalentTo(10))
+		Expect(emittedMetric1.Tags).To(HaveKeyWithValue("deployment", "our-deployment"))
+		Expect(emittedMetric1.Tags).To(HaveKeyWithValue("ip", "192.168.0.1"))
+		Expect(emittedMetric1.Tags).To(HaveKeyWithValue("job", "doppler"))
+		Expect(emittedMetric1.Tags).To(HaveKeyWithValue("index", "0"))
+
+		emittedMetric2 := context.Metrics[1]
+		Expect(emittedMetric2.Name).To(Equal("metric.name"))
+		Expect(emittedMetric2.Value).To(BeEquivalentTo(150))
+		Expect(emittedMetric2.Tags).To(HaveKeyWithValue("deployment", "our-deployment"))
+		Expect(emittedMetric2.Tags).To(HaveKeyWithValue("ip", "192.168.0.1"))
+		Expect(emittedMetric2.Tags).To(HaveKeyWithValue("job", "doppler"))
+		Expect(emittedMetric2.Tags).To(HaveKeyWithValue("index", "1"))
+	})
+
 	It("emits a varz message with different context names", func() {
 		e := emitter.New("varz-nozzle")
 		metric1 := &events.Envelope{

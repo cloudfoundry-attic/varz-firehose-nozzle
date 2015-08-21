@@ -18,6 +18,14 @@ type Metric struct {
 	Tags  map[string]interface{} `json:"tags,omitempty"`
 }
 
+type metricKey struct {
+	name       string
+	deployment string
+	job        string
+	index      string
+	ip         string
+}
+
 type Context struct {
 	Name    string   `json:"name"`
 	Metrics []Metric `json:"metrics"`
@@ -42,7 +50,7 @@ type VarzMessage struct {
 }
 
 type contextMetricsMap struct {
-	Metrics map[string]Metric
+	Metrics map[metricKey]Metric
 }
 
 func New(name string) *VarzEmitter {
@@ -75,11 +83,19 @@ func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 	contextName := metric.GetOrigin()
 
 	if _, ok := e.contextMap[contextName]; !ok {
-		e.contextMap[contextName] = contextMetricsMap{Metrics: make(map[string]Metric)}
+		e.contextMap[contextName] = contextMetricsMap{Metrics: make(map[metricKey]Metric)}
+	}
+
+	key := metricKey{
+		name: name,
+		deployment: metric.GetDeployment(),
+		job: metric.GetJob(),
+		index: metric.GetIndex(),
+		ip: metric.GetIp(),
 	}
 
 	context := e.contextMap[contextName]
-	context.Metrics[name] = Metric{
+	context.Metrics[key] = Metric{
 		Name:  name,
 		Value: value,
 		Tags:  tags,
@@ -101,11 +117,17 @@ func (e *VarzEmitter) AlertSlowConsumerError() {
 	value := uint64(1)
 
 	if _, ok := e.contextMap[contextName]; !ok {
-		e.contextMap[contextName] = contextMetricsMap{Metrics: make(map[string]Metric)}
+		e.contextMap[contextName] = contextMetricsMap{Metrics: make(map[metricKey]Metric)}
 	}
 
 	context := e.contextMap[contextName]
-	context.Metrics[name] = Metric{
+
+	key := metricKey{
+		name: name,
+		ip: ipAddress,
+	}
+
+	context.Metrics[key] = Metric{
 		Name:  name,
 		Value: value,
 		Tags:  tags,
@@ -145,22 +167,21 @@ func (e *VarzEmitter) populateInternalMetrics() {
 func (e *VarzEmitter) ensureVarzNozzleContext() {
 	_, hasVarzContext := e.contextMap["varz-nozzle"]
 	if !hasVarzContext {
-		e.contextMap["varz-nozzle"] = contextMetricsMap{Metrics: make(map[string]Metric)}
+		e.contextMap["varz-nozzle"] = contextMetricsMap{Metrics: make(map[metricKey]Metric)}
 	}
 }
 
 func (e *VarzEmitter) ensureSlowConsumerAlertMetric() {
 	varzNozzleContext := e.contextMap["varz-nozzle"]
-	_, hasSlowConsumerAlert := varzNozzleContext.Metrics["slowConsumerAlert"]
-	if !hasSlowConsumerAlert {
-		varzNozzleContext.Metrics["slowConsumerAlert"] = defaultSlowConsumerMetric()
-	}
-}
 
-func defaultSlowConsumerMetric() Metric {
 	ipAddress, err := localip.LocalIP()
 	if err != nil {
 		panic(err)
+	}
+
+	key := metricKey{
+		name: "slowConsumerAlert",
+		ip: ipAddress,
 	}
 
 	defaultSlowConsumerMetric := Metric{
@@ -170,7 +191,11 @@ func defaultSlowConsumerMetric() Metric {
 			"ip": ipAddress,
 		},
 	}
-	return defaultSlowConsumerMetric
+
+	_, hasSlowConsumerAlert := varzNozzleContext.Metrics[key]
+	if !hasSlowConsumerAlert {
+		varzNozzleContext.Metrics[key] = defaultSlowConsumerMetric
+	}
 }
 
 func getMetrics(metricMap contextMetricsMap) []Metric {
