@@ -4,8 +4,6 @@ import (
 	"github.com/cloudfoundry/gosteno"
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/gorilla/websocket"
-	"strconv"
-	"strings"
 )
 
 type FirehoseConsumer interface {
@@ -80,6 +78,9 @@ func (n *VarzFirehoseNozzle) handleError(err error) {
 }
 
 func isCloseError(err error) bool {
-	errorMsg := "websocket: close " + strconv.Itoa(websocket.CloseInternalServerErr)
-	return strings.Contains(err.Error(), errorMsg)
+	switch closeErr := err.(type) {
+	case *websocket.CloseError:
+		return closeErr.Code == websocket.ClosePolicyViolation
+	}
+	return false
 }

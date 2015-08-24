@@ -11,7 +11,6 @@ import (
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"strconv"
 )
 
 var _ = Describe("VarzFirehoseNozzle", func() {
@@ -114,7 +113,11 @@ var _ = Describe("VarzFirehoseNozzle", func() {
 
 		<-fakeFirehoseConsumer.readyChan
 
-		closeError := errors.New("websocket: close " + strconv.Itoa(websocket.CloseInternalServerErr))
+		closeError := &websocket.CloseError{
+			Code: websocket.ClosePolicyViolation,
+			Text: "Client did not respond to ping before keep-alive timeout expired.",
+		}
+
 		fakeFirehoseConsumer.errorChan <- closeError
 
 		<-fakeVarzEmitter.alertReadyChan
