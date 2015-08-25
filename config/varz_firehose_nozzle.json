@@ -1,4 +1,5 @@
 {
+  "Deployment": "my-cf",
   "UAAURL": "https://uaa.walnut.cf-app.com",
   "UAAUser": "user",
   "UAAPass": "user_password",

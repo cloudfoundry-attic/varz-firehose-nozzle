@@ -65,7 +65,7 @@ func buildVarzMessage() *emitter.VarzMessage {
 				{
 					Name:  "metricName",
 					Value: uint64(10),
-					Tags: map[string]interface{}{
+					Tags: map[string]string{
 						"ip":         "192.168.0.1",
 						"job":        "doppler",
 						"index":      "0",

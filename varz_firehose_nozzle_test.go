@@ -88,7 +88,7 @@ var _ = Describe("VarzFirehoseNozzle Integration", func() {
 		message := getNatsMessage(natsRunner.MessageBus)
 
 		Expect(message.Type).To(Equal("MetronAgent"))
-		Expect(message.Index).To(Equal(0))
+		Expect(message.Index).To(Equal(1))
 		Expect(message.Host).To(MatchRegexp("[^:]*:[0-9]+"))
 		Expect(message.UUID).To(MatchRegexp("[0-9]-[0-9a-f-]{36}"))
 		Expect(message.Credentials).To(ConsistOf("varzUser", "varzPass"))
@@ -164,7 +164,10 @@ func buildConfig(uaaURL string, firehoseURL string) string {
 			NatsUser:  natsUser,
 			NatsPass:  natsPass,
 		},
-		NatsType: natsType,
+		NatsType:   natsType,
+		Deployment: "my-cf",
+		Job:        "varz-nozzle",
+		Index:      1,
 	}
 
 	jsonBytes, err := json.Marshal(&config)

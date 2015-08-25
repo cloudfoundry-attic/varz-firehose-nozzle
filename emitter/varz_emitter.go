@@ -5,17 +5,21 @@ import (
 
 	"github.com/cloudfoundry/sonde-go/events"
 	"github.com/pivotal-golang/localip"
+	"strconv"
 )
 
 type VarzEmitter struct {
 	contextMap map[string]contextMetricsMap
 	name       string
+	job        string
+	index      uint
+	deployment string
 }
 
 type Metric struct {
-	Name  string                 `json:"name"`
-	Value interface{}            `json:"value"`
-	Tags  map[string]interface{} `json:"tags,omitempty"`
+	Name  string            `json:"name"`
+	Value interface{}       `json:"value"`
+	Tags  map[string]string `json:"tags,omitempty"`
 }
 
 type metricKey struct {
@@ -53,17 +57,20 @@ type contextMetricsMap struct {
 	Metrics map[metricKey]Metric
 }
 
-func New(name string) *VarzEmitter {
+func New(name string, job string, index uint, deployment string) *VarzEmitter {
 	return &VarzEmitter{
 		contextMap: make(map[string]contextMetricsMap),
 		name:       name,
+		job:        job,
+		index:      index,
+		deployment: deployment,
 	}
 }
 
 func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 	var name string
 	var value interface{}
-	tags := make(map[string]interface{})
+	tags := make(map[string]string)
 	switch metric.GetEventType() {
 	case events.Envelope_ValueMetric:
 		name = metric.GetValueMetric().GetName()
@@ -87,11 +94,11 @@ func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 	}
 
 	key := metricKey{
-		name: name,
+		name:       name,
 		deployment: metric.GetDeployment(),
-		job: metric.GetJob(),
-		index: metric.GetIndex(),
-		ip: metric.GetIp(),
+		job:        metric.GetJob(),
+		index:      metric.GetIndex(),
+		ip:         metric.GetIp(),
 	}
 
 	context := e.contextMap[contextName]
@@ -104,7 +111,7 @@ func (e *VarzEmitter) AddMetric(metric *events.Envelope) {
 }
 
 func (e *VarzEmitter) AlertSlowConsumerError() {
-	tags := make(map[string]interface{})
+	tags := make(map[string]string)
 
 	ipAddress, err := localip.LocalIP()
 	if err != nil {
@@ -112,6 +119,10 @@ func (e *VarzEmitter) AlertSlowConsumerError() {
 	}
 
 	tags["ip"] = ipAddress
+	tags["deployment"] = e.deployment
+	tags["job"] = e.job
+	tags["index"] = strconv.Itoa(int(e.index))
+
 	contextName := "varz-nozzle"
 	name := "slowConsumerAlert"
 	value := uint64(1)
@@ -124,7 +135,7 @@ func (e *VarzEmitter) AlertSlowConsumerError() {
 
 	key := metricKey{
 		name: name,
-		ip: ipAddress,
+		ip:   ipAddress,
 	}
 
 	context.Metrics[key] = Metric{
@@ -156,6 +167,11 @@ func (e *VarzEmitter) Emit() *VarzMessage {
 		NumCpus:       runtime.NumCPU(),
 		NumGoRoutines: runtime.NumGoroutine(),
 		MemoryStats:   mapMemStats(&memStats),
+		Tags: map[string]string{
+			"deployment": e.deployment,
+			"job":        e.job,
+			"index":      strconv.Itoa(int(e.index)),
+		},
 	}
 }
 
@@ -181,14 +197,17 @@ func (e *VarzEmitter) ensureSlowConsumerAlertMetric() {
 
 	key := metricKey{
 		name: "slowConsumerAlert",
-		ip: ipAddress,
+		ip:   ipAddress,
 	}
 
 	defaultSlowConsumerMetric := Metric{
 		Name:  "slowConsumerAlert",
 		Value: 0,
-		Tags: map[string]interface{}{
-			"ip": ipAddress,
+		Tags: map[string]string{
+			"ip":         ipAddress,
+			"deployment": e.deployment,
+			"job":        e.job,
+			"index":      strconv.Itoa(int(e.index)),
 		},
 	}
 

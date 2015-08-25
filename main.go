@@ -68,7 +68,7 @@ func main() {
 	defer close(threadDumpChan)
 	go dumpGoRoutine(threadDumpChan)
 
-	varzEmitter := emitter.New("varz-nozzle")
+	varzEmitter := emitter.New("varz-nozzle", config.Job, config.Index, config.Deployment)
 
 	varzServer := server.New(varzEmitter, int(component.StatusPort), component.StatusCredentials[0], component.StatusCredentials[1])
 	go varzServer.Start()
