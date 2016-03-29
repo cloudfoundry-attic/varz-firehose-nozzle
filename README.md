@@ -1,5 +1,8 @@
 # varz-firehose-nozzle
 
+### Deprecated. The varz nozzle is no longer actively supported
+ - note that a known problem is that unit tests will fail if upgraded to go 1.5
+
 ### Summary
 Expose metrics from the Loggregator Firehose to /varz for legacy monitoring applications
 
